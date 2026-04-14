@@ -33,9 +33,27 @@ def get_or_create_category(name: str) -> int:
     return r.json()["id"]
 
 
+def article_exists(title: str) -> bool:
+    headers = get_auth_header()
+    r = requests.get(
+        f"{WP_URL}/wp-json/wp/v2/posts",
+        params={"search": title[:50], "per_page": 5},
+        headers=headers
+    )
+    posts = r.json()
+    for post in posts:
+        if post["title"]["rendered"].lower().strip() == title.lower().strip():
+            return True
+    return False
+
+
 def post_article(article: dict) -> bool:
     headers = get_auth_header()
     headers["Content-Type"] = "application/json"
+
+    if article_exists(article["title"]):
+        print(f"  → Пропусната (дублат): {article['title'][:60]}")
+        return False
 
     category_id = get_or_create_category(article["category"])
 
