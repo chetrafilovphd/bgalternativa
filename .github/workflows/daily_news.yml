@@ -1,0 +1,36 @@
+name: BGАлтернатива - Дневни новини
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Всеки ден в 08:00 Sofia (06:00 UTC)
+  workflow_dispatch:      # Позволява ръчно стартиране
+
+jobs:
+  publish-news:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Изтегли кода
+        uses: actions/checkout@v4
+
+      - name: Инсталирай Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Инсталирай зависимости
+        run: pip install -r requirements.txt
+
+      - name: Запази seen_articles.json
+        uses: actions/cache@v4
+        with:
+          path: seen_articles.json
+          key: seen-articles-${{ github.run_id }}
+          restore-keys: seen-articles-
+
+      - name: Пусни новинарския скрипт
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          WP_USERNAME: ${{ secrets.WP_USERNAME }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+        run: python main.py
