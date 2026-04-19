@@ -4,6 +4,9 @@
 
 import requests
 import base64
+import mimetypes
+import os
+from urllib.parse import urlparse, unquote
 from config import WP_URL, WP_USERNAME, WP_APP_PASSWORD
 
 def get_auth_header():
@@ -47,6 +50,45 @@ def article_exists(title: str) -> bool:
     return False
 
 
+def upload_media_from_url(image_url: str) -> int:
+    """Сваля изображение от URL и го качва в WordPress Media Library."""
+    if not image_url:
+        return 0
+    try:
+        img_resp = requests.get(image_url, timeout=15, headers={
+            "User-Agent": "Mozilla/5.0"
+        })
+        if img_resp.status_code != 200 or len(img_resp.content) < 1000:
+            return 0
+
+        # Определи име на файла и mime
+        path = urlparse(image_url).path
+        filename = unquote(os.path.basename(path)) or "image.jpg"
+        # Подсигури валидно разширение
+        mime = img_resp.headers.get("Content-Type", "").split(";")[0].strip()
+        if not mime or "image" not in mime:
+            mime = mimetypes.guess_type(filename)[0] or "image/jpeg"
+        ext_map = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+        if not any(filename.lower().endswith(e) for e in [".jpg", ".jpeg", ".png", ".webp", ".gif"]):
+            filename += ext_map.get(mime, ".jpg")
+
+        upload_headers = get_auth_header()
+        upload_headers["Content-Type"] = mime
+        upload_headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+        r = requests.post(
+            f"{WP_URL}/wp-json/wp/v2/media",
+            data=img_resp.content,
+            headers=upload_headers,
+            timeout=30,
+        )
+        if r.status_code in (200, 201):
+            return r.json().get("id", 0)
+    except Exception as e:
+        print(f"    ⚠ Грешка при качване на снимка: {e}")
+    return 0
+
+
 def post_article(article: dict) -> bool:
     headers = get_auth_header()
     headers["Content-Type"] = "application/json"
@@ -57,15 +99,28 @@ def post_article(article: dict) -> bool:
 
     category_id = get_or_create_category(article["category"])
 
+    # Взимаме featured image от Unsplash/Pexels (безопасно за копирайт)
+    from unsplash_helper import get_image_for_article, unsplash_credit_html
+    media_id = 0
+    photo_credit = ""
+    photo, _ = get_image_for_article(article["title"], article["category"])
+    if photo and photo.get("url"):
+        media_id = upload_media_from_url(photo["url"])
+        if media_id:
+            print(f"    ✓ Снимка от {photo.get('_source', 'Unsplash')} (ID: {media_id})")
+            photo_credit = unsplash_credit_html(photo)
+
     source_note = f'<p><small>Източник: <a href="{article["original_url"]}" target="_blank" rel="nofollow">{article["source"]}</a></small></p>'
 
     data = {
         "title": article["title"],
-        "content": article["content"] + source_note,
+        "content": article["content"] + source_note + photo_credit,
         "status": "publish",
         "categories": [category_id],
         "format": "standard",
     }
+    if media_id:
+        data["featured_media"] = media_id
 
     r = requests.post(
         f"{WP_URL}/wp-json/wp/v2/posts",

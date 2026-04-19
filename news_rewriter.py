@@ -67,6 +67,7 @@ def rewrite_article(article: dict) -> dict:
         result["original_url"] = article["url"]
         result["source"] = article["source"]
         result["category"] = article["category"]
+        result["image_url"] = article.get("image_url", "")
         return result
 
     except Exception as e:
@@ -103,6 +104,7 @@ def rewrite_analysis(article: dict) -> dict:
         result["original_url"] = article["url"]
         result["source"] = article["source"]
         result["category"] = "Анализи"
+        result["image_url"] = article.get("image_url", "")
         return result
 
     except Exception as e:

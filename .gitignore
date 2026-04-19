@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.claude/
+seen_articles.json
+old_media_to_delete.txt
+backfill_log.txt
+debug.py
+debug2.py
+test_one_article.py
+test_upload.py
+setup_wordpress.php
+google*.html
+bgalt.logo.jpg
+channels4_banner.jpg
+*.docx
+*.pdf

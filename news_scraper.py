@@ -48,8 +48,28 @@ def fetch_articles(category, limit=10):
                 elif hasattr(entry, "content"):
                     content = entry.content[0].value
 
-                # Почисти HTML тагове
                 import re
+
+                # Извлечи изображение ПРЕДИ да изчистиш HTML
+                image_url = ""
+                # 1. media:thumbnail / media:content
+                if hasattr(entry, "media_thumbnail") and entry.media_thumbnail:
+                    image_url = entry.media_thumbnail[0].get("url", "")
+                elif hasattr(entry, "media_content") and entry.media_content:
+                    image_url = entry.media_content[0].get("url", "")
+                # 2. enclosures (RSS 2.0)
+                elif hasattr(entry, "enclosures") and entry.enclosures:
+                    for enc in entry.enclosures:
+                        if "image" in enc.get("type", ""):
+                            image_url = enc.get("href", "") or enc.get("url", "")
+                            break
+                # 3. Първо <img> в съдържанието
+                if not image_url:
+                    img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', content)
+                    if img_match:
+                        image_url = img_match.group(1)
+
+                # Почисти HTML тагове
                 content = re.sub(r"<[^>]+>", "", content).strip()
 
                 if len(content) < 100:
@@ -64,6 +84,7 @@ def fetch_articles(category, limit=10):
                     "lang": source["lang"],
                     "category": category,
                     "published": entry.get("published", str(datetime.now())),
+                    "image_url": image_url,
                 })
 
                 if len(articles) >= limit:
