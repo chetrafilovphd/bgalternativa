@@ -12,19 +12,61 @@ client = Groq(api_key=GROQ_API_KEY)
 SYSTEM_PROMPT = """Ти си редактор на информационна платформа за българска аудитория.
 
 ВАЖНИ правила за писане:
-- Пиши на ЧИСТ БЪЛГАРСКИ ЕЗИК — както говори средностатистическия образован българин
-- Не използвай транслитерирани чужди думи като: инбокс (→ поща), канава (→ платно), дедлайн (→ срок), фийдбек (→ обратна връзка), ъпдейт (→ обновяване), челендж (→ предизвикателство), кулинарен експерт вместо cook
+- Пиши на ЧИСТ БЪЛГАРСКИ ЕЗИК — както говори средностатистическият образован българин
+- Не използвай транслитерирани чужди думи като: инбокс (→ поща), канава (→ платно), дедлайн (→ срок), фийдбек (→ обратна връзка), ъпдейт (→ обновяване), челендж (→ предизвикателство)
 - Не започвай с клишета: "В заключение", "В крайна сметка", "В днешния бързо развиващ се свят", "Важно е да се отбележи", "Струва си да"
 - Избягвай помпозни AI фрази: "постоянно развиващ се", "динамичен пейзаж", "безпрецедентен", "съществено значение"
 - Използвай кратки, ясни изречения — български новинарски стил
-- Не повтаряй едно и също по различен начин
 - Тон: неутрален, фактологичен, без дидактика
 - Запази фактите, използвай свои думи
 - Дължина: 180-300 думи
 - Ако е анализ — спокоен, без емоционална реторика
 
 Отговори САМО с JSON без никакъв друг текст:
-{"title": "заглавието", "content": "<p>параграф 1</p><p>параграф 2</p>"}"""
+{"title": "заглавието", "content": "<p>параграф 1</p><p>параграф 2</p>", "meta_description": "кратко 140-155 символа SEO описание за Google", "excerpt": "едно изречение кратко резюме"}"""
+
+
+# Списък с чувствителни имена — ако се срещне, статията отива в "Draft" за ръчен преглед
+SENSITIVE_NAMES = [
+    # Български политици (настоящи и бивши)
+    "Бойко Борисов", "Борисов",
+    "Кирил Петков",
+    "Асен Василев",
+    "Делян Пеевски", "Пеевски",
+    "Корнелия Нинова",
+    "Костадин Костадинов", "Копейкин",
+    "Волен Сидеров",
+    "Слави Трифонов",
+    "Росен Плевнелиев",
+    "Румен Радев",
+    "Стефан Янев",
+    "Николай Денков",
+    "Мария Габриел",
+    "Атанас Атанасов",
+    "Христо Иванов",
+    "Деница Сачева",
+    "Тошко Йорданов",
+    "Васил Божков",
+    # Бизнес
+    "Иво Прокопиев",
+    "Цветелина Бориславова",
+    "Гриша Ганчев",
+    "Васил Божков",
+    # Съд / институции
+    "Иван Гешев",
+    "Сотир Цацаров",
+    "Борислав Сарафов",
+]
+
+
+def contains_sensitive(text: str) -> list:
+    """Връща списък с открити чувствителни имена."""
+    found = []
+    text_lower = text.lower()
+    for name in SENSITIVE_NAMES:
+        if name.lower() in text_lower:
+            found.append(name)
+    return list(set(found))
 
 
 def clean_json(text):
@@ -42,6 +84,15 @@ def clean_json(text):
     end = text.rfind("}") + 1
     if start >= 0 and end > 0:
         text = text[start:end]
+    return text
+
+
+def _extract_meta(content_html: str) -> str:
+    """Fallback: ако липсва meta_description, извлича първите 155 символа от съдържанието."""
+    text = re.sub(r"<[^>]+>", "", content_html or "")
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) > 155:
+        return text[:152].rsplit(" ", 1)[0] + "..."
     return text
 
 
@@ -70,6 +121,21 @@ def rewrite_article(article: dict) -> dict:
         text = response.choices[0].message.content
         text = clean_json(text)
         result = json.loads(text)
+
+        # Чувствителни имена → маркираме като draft за ръчен преглед
+        combined_text = result.get("title", "") + " " + result.get("content", "")
+        flagged = contains_sensitive(combined_text)
+        if flagged:
+            result["status"] = "draft"
+            result["sensitive_names"] = flagged
+            print(f"    ⚠ Чувствителни имена: {flagged} → DRAFT")
+
+        # Гарантираме meta_description
+        if not result.get("meta_description"):
+            result["meta_description"] = _extract_meta(result.get("content", ""))
+        # Ограничаваме до 155 символа
+        result["meta_description"] = result["meta_description"][:155]
+
         result["original_url"] = article["url"]
         result["source"] = article["source"]
         result["category"] = article["category"]
@@ -94,7 +160,7 @@ def rewrite_analysis(article: dict) -> dict:
 - Анализ (200 думи)
 - Значение за България/Европа (100 думи)
 
-Отговори САМО с JSON: {{"title": "...", "content": "<p>...</p>"}}"""
+Отговори САМО с JSON: {{"title": "...", "content": "<p>...</p>", "meta_description": "140-155 символа SEO описание", "excerpt": "едно изречение резюме"}}"""
 
     try:
         response = client.chat.completions.create(
@@ -107,6 +173,18 @@ def rewrite_analysis(article: dict) -> dict:
         text = response.choices[0].message.content
         text = clean_json(text)
         result = json.loads(text)
+
+        combined_text = result.get("title", "") + " " + result.get("content", "")
+        flagged = contains_sensitive(combined_text)
+        if flagged:
+            result["status"] = "draft"
+            result["sensitive_names"] = flagged
+            print(f"    ⚠ Чувствителни имена (анализ): {flagged} → DRAFT")
+
+        if not result.get("meta_description"):
+            result["meta_description"] = _extract_meta(result.get("content", ""))
+        result["meta_description"] = result["meta_description"][:155]
+
         result["original_url"] = article["url"]
         result["source"] = article["source"]
         result["category"] = "Анализи"

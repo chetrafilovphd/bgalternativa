@@ -112,15 +112,31 @@ def post_article(article: dict) -> bool:
 
     source_note = f'<p><small>Източник: <a href="{article["original_url"]}" target="_blank" rel="nofollow">{article["source"]}</a></small></p>'
 
+    # Статии с чувствителни имена → DRAFT за ръчен преглед
+    status = article.get("status", "publish")
+    sensitive_note = ""
+    if article.get("sensitive_names"):
+        names = ", ".join(article["sensitive_names"])
+        sensitive_note = f'<!-- AUTO-FLAGGED: {names} -->'
+
     data = {
         "title": article["title"],
-        "content": article["content"] + source_note + photo_credit,
-        "status": "publish",
+        "content": sensitive_note + article["content"] + source_note + photo_credit,
+        "status": status,
         "categories": [category_id],
         "format": "standard",
     }
     if media_id:
         data["featured_media"] = media_id
+    # SEO excerpt (Yoast/Rank Math използват този)
+    if article.get("excerpt"):
+        data["excerpt"] = article["excerpt"]
+    # Rank Math meta description чрез post_meta
+    if article.get("meta_description"):
+        data["meta"] = {
+            "rank_math_description": article["meta_description"],
+            "_yoast_wpseo_metadesc": article["meta_description"],  # за всеки случай
+        }
 
     r = requests.post(
         f"{WP_URL}/wp-json/wp/v2/posts",
@@ -129,7 +145,8 @@ def post_article(article: dict) -> bool:
     )
 
     if r.status_code == 201:
-        print(f"  ✓ Публикувана: {article['title'][:60]}")
+        status_label = "📝 ЧЕРНОВА" if status == "draft" else "✓ Публикувана"
+        print(f"  {status_label}: {article['title'][:60]}")
         return True
     else:
         print(f"  ✗ Грешка: {r.status_code} - {r.text[:100]}")
