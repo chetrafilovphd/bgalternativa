@@ -1,0 +1,52 @@
+name: BGАлтернатива - Telegram анкети
+
+on:
+  schedule:
+    # Дневна анкета: 18:00 BG = 16:00 UTC
+    - cron: '0 16 * * *'
+    # Седмична: неделя 19:00 BG = 17:00 UTC
+    - cron: '0 17 * * 0'
+  workflow_dispatch:
+    inputs:
+      poll_type:
+        description: 'Тип анкета (daily / weekly)'
+        required: true
+        default: 'daily'
+        type: choice
+        options:
+          - daily
+          - weekly
+
+jobs:
+  send-poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Изтегли кода
+        uses: actions/checkout@v4
+
+      - name: Инсталирай Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Инсталирай зависимости
+        run: pip install requests groq
+
+      - name: Определи тип на анкетата
+        id: poll_type
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "type=${{ inputs.poll_type }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 17 * * 0" ]; then
+            echo "type=weekly" >> $GITHUB_OUTPUT
+          else
+            echo "type=daily" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Пусни анкетата
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          POLL_TYPE: ${{ steps.poll_type.outputs.type }}
+        run: python telegram_polls.py
