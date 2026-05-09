@@ -1,0 +1,34 @@
+name: BGАлтернатива - Telegram автопостване
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Всеки 30 минути
+  workflow_dispatch:        # Възможност за ръчно стартиране
+
+jobs:
+  publish-to-telegram:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Изтегли кода
+        uses: actions/checkout@v4
+
+      - name: Инсталирай Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Инсталирай зависимости
+        run: pip install requests
+
+      - name: Запази seen_telegram.json (cache)
+        uses: actions/cache@v4
+        with:
+          path: seen_telegram.json
+          key: seen-telegram-${{ github.run_id }}
+          restore-keys: seen-telegram-
+
+      - name: Пусни постовете
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
+        run: python telegram_poster.py
