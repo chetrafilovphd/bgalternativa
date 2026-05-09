@@ -1,0 +1,30 @@
+name: BGАлтернатива - SEO meta автоматизация
+
+on:
+  schedule:
+    # Всяка сутрин 06:00 BG = 04:00 UTC (когато Groq tokens са се нулирали)
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  optimize-seo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Изтегли кода
+        uses: actions/checkout@v4
+
+      - name: Инсталирай Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Инсталирай зависимости
+        run: pip install requests groq
+
+      - name: Стартирай SEO ъпдейт
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          WP_USERNAME: ${{ secrets.WP_USERNAME }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+        run: python seo_optimize_v2.py
