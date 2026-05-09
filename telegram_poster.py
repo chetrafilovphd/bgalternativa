@@ -190,6 +190,9 @@ def send_to_telegram(message: str, photo_url: str = ""):
     return False
 
 
+MAX_POSTS_PER_RUN = 3  # Ограничение за избягване на flood
+
+
 def main():
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHANNEL:
         print("ГРЕШКА: Задайте TELEGRAM_BOT_TOKEN и TELEGRAM_CHANNEL env vars.")
@@ -200,8 +203,18 @@ def main():
     posts = fetch_new_posts(limit=10)
     print(f"Последни постове: {len(posts)}")
 
+    # Ако seen е празен (първи run), маркираме всички освен последния като "видени"
+    # за да не flood-ваме канала с 10 поста наведнъж
+    if not seen and posts:
+        seen = [p["id"] for p in posts[1:]]  # всички без най-новия
+        print(f"Първо стартиране — маркирам {len(seen)} стари като 'видени'")
+
     new_count = 0
     for post in reversed(posts):  # oldest first → запазва хронологията
+        if new_count >= MAX_POSTS_PER_RUN:
+            print(f"Достигнат лимит {MAX_POSTS_PER_RUN}/run, спирам.")
+            break
+
         post_id = post["id"]
         if post_id in seen:
             continue
