@@ -14,3 +14,10 @@ bgalt.logo.jpg
 channels4_banner.jpg
 *.docx
 *.pdf
+seo_optimize.py
+seo_helper.php
+seo_log.txt
+test_*.py
+*.txt
+debug*.py
+PYEOF

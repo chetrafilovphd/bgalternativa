@@ -131,12 +131,15 @@ def post_article(article: dict) -> bool:
     # SEO excerpt (Yoast/Rank Math използват този)
     if article.get("excerpt"):
         data["excerpt"] = article["excerpt"]
-    # Rank Math meta description чрез post_meta
+    # Rank Math SEO title + description
+    meta_data = {}
     if article.get("meta_description"):
-        data["meta"] = {
-            "rank_math_description": article["meta_description"],
-            "_yoast_wpseo_metadesc": article["meta_description"],  # за всеки случай
-        }
+        meta_data["rank_math_description"] = article["meta_description"]
+        meta_data["_yoast_wpseo_metadesc"] = article["meta_description"]
+    if article.get("seo_title"):
+        meta_data["rank_math_title"] = article["seo_title"]
+    if meta_data:
+        data["meta"] = meta_data
 
     r = requests.post(
         f"{WP_URL}/wp-json/wp/v2/posts",

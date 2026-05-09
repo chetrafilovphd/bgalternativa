@@ -23,7 +23,7 @@ SYSTEM_PROMPT = """Ти си редактор на информационна п
 - Ако е анализ — спокоен, без емоционална реторика
 
 Отговори САМО с JSON без никакъв друг текст:
-{"title": "заглавието", "content": "<p>параграф 1</p><p>параграф 2</p>", "meta_description": "кратко 140-155 символа SEO описание за Google", "excerpt": "едно изречение кратко резюме"}"""
+{"title": "заглавието", "content": "<p>параграф 1</p><p>параграф 2</p>", "seo_title": "50-60 символа SEO заглавие за Google търсачката (различно от title - по-кратко, с ключови думи)", "meta_description": "кратко 140-155 символа SEO описание за Google", "excerpt": "едно изречение кратко резюме"}"""
 
 
 # Списък с чувствителни имена — ако се срещне, статията отива в "Draft" за ръчен преглед
@@ -133,8 +133,12 @@ def rewrite_article(article: dict) -> dict:
         # Гарантираме meta_description
         if not result.get("meta_description"):
             result["meta_description"] = _extract_meta(result.get("content", ""))
-        # Ограничаваме до 155 символа
         result["meta_description"] = result["meta_description"][:155]
+
+        # SEO title — fallback към article title ако липсва
+        if not result.get("seo_title"):
+            result["seo_title"] = result.get("title", "")[:60]
+        result["seo_title"] = result["seo_title"][:60]
 
         result["original_url"] = article["url"]
         result["source"] = article["source"]
@@ -160,7 +164,7 @@ def rewrite_analysis(article: dict) -> dict:
 - Анализ (200 думи)
 - Значение за България/Европа (100 думи)
 
-Отговори САМО с JSON: {{"title": "...", "content": "<p>...</p>", "meta_description": "140-155 символа SEO описание", "excerpt": "едно изречение резюме"}}"""
+Отговори САМО с JSON: {{"title": "...", "content": "<p>...</p>", "seo_title": "50-60 символа SEO заглавие", "meta_description": "140-155 символа SEO описание", "excerpt": "едно изречение резюме"}}"""
 
     try:
         response = client.chat.completions.create(
@@ -184,6 +188,10 @@ def rewrite_analysis(article: dict) -> dict:
         if not result.get("meta_description"):
             result["meta_description"] = _extract_meta(result.get("content", ""))
         result["meta_description"] = result["meta_description"][:155]
+
+        if not result.get("seo_title"):
+            result["seo_title"] = result.get("title", "")[:60]
+        result["seo_title"] = result["seo_title"][:60]
 
         result["original_url"] = article["url"]
         result["source"] = article["source"]
