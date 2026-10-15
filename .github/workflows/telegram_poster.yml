@@ -1,9 +1,8 @@
 name: BGАлтернатива - Telegram автопостване
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'  # Всеки 30 минути
-  workflow_dispatch:        # Възможност за ръчно стартиране
+  # Автоматичният cron е деактивиран. Може да се стартира само ръчно.
+  workflow_dispatch:
 
 jobs:
   publish-to-telegram:

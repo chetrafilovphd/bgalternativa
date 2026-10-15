@@ -1,9 +1,7 @@
 name: BGАлтернатива - SEO meta автоматизация
 
 on:
-  schedule:
-    # Всяка сутрин 06:00 BG = 04:00 UTC (когато Groq tokens са се нулирали)
-    - cron: '0 4 * * *'
+  # Автоматичният cron е деактивиран. Може да се стартира само ръчно.
   workflow_dispatch:
 
 jobs:

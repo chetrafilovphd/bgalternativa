@@ -1,11 +1,7 @@
 name: BGАлтернатива - Telegram анкети
 
 on:
-  schedule:
-    # Дневна анкета: 18:00 BG = 16:00 UTC
-    - cron: '0 16 * * *'
-    # Седмична: неделя 19:00 BG = 17:00 UTC
-    - cron: '0 17 * * 0'
+  # Автоматичният cron е деактивиран. Може да се стартира само ръчно.
   workflow_dispatch:
     inputs:
       poll_type:
